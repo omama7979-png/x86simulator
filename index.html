@@ -1,0 +1,440 @@
+<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>x86 Assembly Simulator</title>
+<style>
+:root{--bg:#1e1f26;--p:#262833;--p2:#2d3040;--bd:#3a3d4f;--fg:#d7dae6;--dim:#8a8fa8;--acc:#4d8dff;--cur:#3b4a1f;--er:#5a2326;--ins:#c792ea;--reg:#82aaff;--num:#f78c6c;--str:#c3e88d;--com:#6b7194;--dir:#ffcb6b;--lab:#89ddff;--ok:#3fb950;--bad:#f85149;--warn:#d29922}
+[data-theme=light]{--bg:#f6f7fb;--p:#fff;--p2:#eceef6;--bd:#cfd3e3;--fg:#23263a;--dim:#6a6f8a;--acc:#1f5fd6;--cur:#e3f2b8;--er:#ffd6d6;--ins:#8a2be2;--reg:#0b57d0;--num:#c2410c;--str:#2e7d32;--com:#8a90a8;--dir:#a16207;--lab:#00778f}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{display:grid;grid-template-rows:auto 1fr 36vh;grid-template-columns:1fr 290px;grid-template-areas:"h h""e s""b b";background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,Segoe UI,sans-serif}
+header{grid-area:h;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 10px;background:var(--p);border-bottom:1px solid var(--bd)}
+header b{margin-right:8px}button,select,input,textarea{font:inherit;color:var(--fg);background:var(--p2);border:1px solid var(--bd);border-radius:5px;padding:4px 9px}
+button{cursor:pointer}button:hover:not(:disabled){border-color:var(--acc)}button:disabled{opacity:.4;cursor:default}.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+#st{margin-left:auto;display:flex;gap:10px;align-items:center}#dot{width:10px;height:10px;border-radius:50%;background:var(--dim);display:inline-block;margin-right:5px}
+#ed{grid-area:e;display:flex;min-height:0;background:var(--p)}#gut{width:46px;overflow:hidden;background:var(--p2);color:var(--dim);text-align:right;padding:8px 0;font:13px/21px Consolas,'Courier New',monospace;user-select:none}
+#gut div{padding-right:8px;cursor:pointer;height:21px}#gut .bp{color:#fff;background:var(--bad)}#gut .cur{color:var(--fg);font-weight:700}
+#wrap{position:relative;flex:1;overflow:hidden}#pre,#src{font:13px/21px Consolas,'Courier New',monospace;padding:8px;margin:0;white-space:pre;tab-size:4}
+#pre{position:absolute;top:0;left:0;min-width:100%;pointer-events:none}#pre .l{height:21px}#pre .cur{background:var(--cur);box-shadow:inset 3px 0 var(--ok)}#pre .er{background:var(--er)}
+#src{position:absolute;inset:0;width:100%;height:100%;background:transparent;color:transparent;caret-color:var(--fg);border:0;border-radius:0;resize:none;outline:0;overflow:auto}#src::selection{background:rgba(77,141,255,.35)}
+.k{color:var(--ins)}.r{color:var(--reg)}.n{color:var(--num)}.s{color:var(--str)}.c{color:var(--com);font-style:italic}.d{color:var(--dir)}.lb{color:var(--lab)}
+aside{grid-area:s;overflow:auto;background:var(--p);border-left:1px solid var(--bd);padding:8px}aside h4{margin:8px 0 4px;color:var(--dim);text-transform:uppercase;font-size:11px;letter-spacing:.06em}
+table{border-collapse:collapse;width:100%}td,th{padding:2px 5px;text-align:left}td.m,.mono{font-family:Consolas,'Courier New',monospace}tr.ch td{background:rgba(77,141,255,.22)}
+#fl{display:flex;flex-wrap:wrap;gap:4px}.fg{padding:2px 8px;border-radius:4px;background:var(--p2);font-family:Consolas,monospace}.fg.on{background:var(--acc);color:#fff}
+footer{grid-area:b;display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--bd);background:var(--p)}#tabs{display:flex;background:var(--p2);overflow:auto}
+#tabs button{border:0;border-radius:0;background:none;padding:6px 14px;border-bottom:2px solid transparent}#tabs button.on{border-bottom-color:var(--acc);color:var(--acc)}
+#panes{flex:1;overflow:auto;padding:8px}.pane{display:none;height:100%}.pane.on{display:block}.mono{white-space:pre-wrap;font-size:12.5px}.dim{color:var(--dim)}.e{color:var(--bad)}.o{color:var(--ok)}.w{color:var(--warn)}
+#stdin{width:100%;height:46px;font-family:Consolas,monospace}#out{margin:6px 0;min-height:60px}
+@media(max-width:820px){body{grid-template-columns:1fr;grid-template-rows:auto 50vh auto 40vh;grid-template-areas:"h""e""s""b"}aside{border-left:0;border-top:1px solid var(--bd)}}
+</style></head><body>
+<header><b>x86 Simulator</b><select id="ex" title="Load example"></select>
+<button id="bA">Assemble</button><button id="bR" class="pri">▶ Run</button><button id="bS">Step</button><button id="bC">Continue</button><button id="bP">Pause</button><button id="bX">Reset</button>
+<select id="sp" title="Speed"><option value="max">Speed: Max</option><option value="fast">Fast (50/s)</option><option value="slow">Slow (2/s)</option></select>
+<label class="dim">Limit <input id="lim" type="number" value="1000000" min="1" style="width:92px"></label><button id="bK">Clear</button><button id="bT">☀/☾</button>
+<span id="st"><span><i id="dot"></i><b id="stt">Ready</b></span><span class="dim">Instructions: <b id="cnt" style="color:var(--fg)">0</b></span></span></header>
+<section id="ed"><div id="gut"></div><div id="wrap"><pre id="pre"></pre><textarea id="src" spellcheck="false" wrap="off"></textarea></div></section>
+<aside><h4>Registers</h4><table id="regs"></table><h4>EFLAGS</h4><div id="fl"></div><div class="mono dim" id="efl" style="margin-top:4px"></div><h4>Next instruction</h4><div class="mono" id="nx">–</div></aside>
+<footer><div id="tabs"></div><div id="panes">
+<div class="pane" id="p-out"><div class="dim">Program output (stdout/stderr)</div><pre class="mono" id="out"></pre><div class="dim">Input (stdin) – read by sys_read(fd 0):</div><textarea id="stdin" spellcheck="false"></textarea></div>
+<div class="pane mono" id="p-con"></div><div class="pane mono" id="p-his"></div><div class="pane mono" id="p-stk"></div>
+<div class="pane" id="p-mem"><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">Addr 0x<input id="ma" style="width:96px" class="mono"><button id="mg">Go</button><button id="md">Data</button><button id="ms">Stack</button>
+<select id="msz"><option value="1">Byte</option><option value="2">Word</option><option value="4" selected>Dword</option></select>
+<span class="dim">| Write 0x</span><input id="wa" placeholder="addr" style="width:90px" class="mono"><input id="wv" placeholder="value hex" style="width:90px" class="mono"><select id="ws"><option value="1">byte</option><option value="2">word</option><option value="4" selected>dword</option></select><button id="mw">Write</button></div><div class="mono" id="memv"></div></div>
+<div class="pane mono" id="p-err"></div></div></footer>
+<script>/* x86-32 simulator core: assembler + CPU + memory + syscalls. No DOM, no network. */
+(function(root){'use strict';
+const TB=0x08048000,DB=0x08049000,DS=0x100000,SB=0xBFFE0000,SS=0x10000,STOP=SB+SS;
+const P=[0,256,65536,0,4294967296],MK=[0,255,65535,0,4294967295],SG=[0,128,32768,0,2147483648];
+const hex=(v,n=8)=>(v>>>0).toString(16).toUpperCase().padStart(n,'0');
+const wrap=(v,s)=>((v%P[s])+P[s])%P[s],sx=(v,s)=>v>=SG[s]?v-P[s]:v;
+class SimError extends Error{constructor(m,line){super(m);this.line=line;}}
+const R32=['eax','ecx','edx','ebx','esp','ebp','esi','edi'];
+const mk=(i,s,h=0)=>({t:'r',i,s,h});
+const EAX=mk(0,4),AX=mk(0,2),AL=mk(0,1),AH=mk(0,1,1),EDX=mk(2,4),DX=mk(2,2);
+function regInfo(n){n=n.toLowerCase();let i=R32.indexOf(n);if(i>=0)return mk(i,4);
+ if(n.length===2){i=R32.indexOf('e'+n);if(i>=0)return mk(i,2);i='acdb'.indexOf(n[0]);if(i>=0&&(n[1]==='l'||n[1]==='h'))return mk(i,1,n[1]==='h'?1:0);}return null;}
+const CC={};const def=(n,fn)=>n.split(' ').forEach(x=>CC[x]=fn);
+def('e z',f=>f.zf);def('ne nz',f=>!f.zf);def('g nle',f=>!f.zf&&f.sf===f.of);def('ge nl',f=>f.sf===f.of);def('l nge',f=>f.sf!==f.of);
+def('le ng',f=>f.zf||f.sf!==f.of);def('a nbe',f=>!f.cf&&!f.zf);def('ae nb nc',f=>!f.cf);def('b nae c',f=>f.cf);def('be na',f=>f.cf||f.zf);
+def('s',f=>f.sf);def('ns',f=>!f.sf);def('o',f=>f.of);def('no',f=>!f.of);def('p pe',f=>f.pf);def('np po',f=>!f.pf);
+const A2='mov movzx movsx lea add adc sub sbb and or xor cmp test xchg shl sal shr sar'.split(' ');
+const A1='inc dec not neg mul div idiv push pop jmp call int loop jecxz jcxz'.split(' ');
+const A0='nop hlt cdq cld std clc stc stosb stosw stosd movsb movsw movsd lodsb lodsw lodsd'.split(' ');
+const isJcc=m=>m[0]==='j'&&m.slice(1) in CC;
+/* ---------- expressions ---------- */
+function ev(s,sym,dol){
+ const t=s.replace(/'([^']*)'|"([^"]*)"|\$|0x[0-9a-f]+\b|[0-9][0-9a-f]*h\b|[01]+b\b|\d+|[A-Za-z_.@][\w.@$]*/gi,(m,a,b)=>{
+  if(a!==undefined||b!==undefined){const q=a!==undefined?a:b;let v=0;for(let i=0;i<q.length;i++)v+=q.charCodeAt(i)*Math.pow(2,8*i);return'('+v+')';}
+  if(m==='$')return'('+dol+')';
+  if(/^0x/i.test(m)||/^[0-9][0-9a-f]*h$/i.test(m))return'('+parseInt(m.replace(/h$/i,''),16)+')';
+  if(/^[01]+b$/i.test(m))return'('+parseInt(m,2)+')';
+  if(/^\d+$/.test(m))return'('+parseInt(m,10)+')';
+  const k=m.toLowerCase();if(!(k in sym))throw new Error(`undefined symbol '${m}'`);return'('+sym[k]+')';});
+ if(!/^[\d\s+\-*\/()&|^~%<>]*$/.test(t))throw new Error(`invalid expression '${s}'`);
+ let v;try{v=calc(t);}catch(e){throw new Error(`invalid expression '${s}'`);}
+ return Math.trunc(v);}
+function calc(t){const tk=t.match(/<<|>>|[()+\-*\/%&|^~]|\d+/g)||[];let p=0;const pk=()=>tk[p],nx=()=>tk[p++];
+ const un=()=>{const x=nx();if(x==='-')return -un();if(x==='+')return un();if(x==='~')return ~un();if(x==='('){const v=or();if(nx()!==')')throw 0;return v;}if(x===undefined||isNaN(+x))throw 0;return +x;};
+ const bin=(sub,ops)=>()=>{let v=sub();while(ops.includes(pk())){const o=nx(),r=sub();v=o==='+'?v+r:o==='-'?v-r:o==='*'?v*r:o==='/'?Math.trunc(v/r):o==='%'?v%r:o==='<<'?v<<r:o==='>>'?v>>r:o==='&'?v&r:o==='|'?v|r:v^r;}return v;};
+ const mul=bin(un,['*','/','%']),add=bin(mul,['+','-']),sh=bin(add,['<<','>>']),an=bin(sh,['&']),xr=bin(an,['^']),or=bin(xr,['|']);
+ const v=or();if(p!==tk.length)throw 0;return v;}
+function strip(l){let q=null,o='';for(const c of l){if(q){o+=c;if(c===q)q=null;}else if(c==="'"||c==='"'){q=c;o+=c;}else if(c===';')break;else o+=c;}return o.trim();}
+function split(s){const r=[];let q=null,d=0,cur='';for(const c of s){if(q){cur+=c;if(c===q)q=null;continue;}
+ if(c==="'"||c==='"'){q=c;cur+=c;continue;}if(c==='('||c==='[')d++;if(c===')'||c===']')d--;
+ if(c===','&&!d){r.push(cur.trim());cur='';}else cur+=c;}if(cur.trim()||r.length)r.push(cur.trim());return r;}
+const UNIT={db:1,dw:2,dd:4,resb:1,resw:2,resd:4},DUP=/^(.+?)\s+dup\s*\((.*)\)$/i,STR=/^(['"]).*\1$/;
+function dlen(op,args,sym,dol){const u=UNIT[op];if(op[0]==='r')return ev(args,sym,dol)*u;let n=0,m;
+ for(const a of split(args)){if((m=a.match(DUP)))n+=ev(m[1],sym,dol)*dlen(op,m[2],sym,dol);else if(u===1&&STR.test(a))n+=a.length-2;else n+=u;}return n;}
+function emit(op,args,sym,dol,out){const u=UNIT[op];
+ if(op[0]==='r'){for(let i=ev(args,sym,dol)*u;i>0;i--)out.push(0);return;}let m;
+ for(const a of split(args)){if((m=a.match(DUP))){const n=ev(m[1],sym,dol);for(let k=0;k<n;k++)emit(op,m[2],sym,dol,out);}
+  else if(u===1&&STR.test(a)){for(const c of a.slice(1,-1))out.push(c.charCodeAt(0)&255);}
+  else{const v=a==='?'?0:wrap(ev(a,sym,dol),u);for(let i=0;i<u;i++)out.push(Math.floor(v/Math.pow(256,i))%256);}}}
+function parseOp(s,sym,dol){
+ s=s.trim().replace(/^(short|near|far)\s+/i,'');let sz=0,m=s.match(/^(byte|word|dword)\s+(?:ptr\s+)?(.*)$/i);
+ if(m){sz={byte:1,word:2,dword:4}[m[1].toLowerCase()];s=m[2].trim();}
+ const b=s.match(/^\[(.*)\]$/);
+ if(b){const o={t:'m',b:null,x:null,sc:1,d:0,sz},re=/([+-]?)\s*([^+-]+)/g;let q,sm;
+  while((q=re.exec(b[1]))){const sg=q[1]==='-'?-1:1,tk=q[2].trim();
+   if((sm=tk.match(/^(\w+)\s*\*\s*(\d+)$/))&&regInfo(sm[1])){o.x=regInfo(sm[1]);o.sc=+sm[2];}
+   else if((sm=tk.match(/^(\d+)\s*\*\s*(\w+)$/))&&regInfo(sm[2])){o.x=regInfo(sm[2]);o.sc=+sm[1];}
+   else if(sg>0&&regInfo(tk)){const r=regInfo(tk);if(!o.b)o.b=r;else if(!o.x)o.x=r;else throw new Error('invalid memory operand');}
+   else o.d+=sg*ev(tk,sym,dol);}
+  return o;}
+ const r=regInfo(s);if(r)return r;
+ return{t:'i',v:ev(s.replace(/^offset\s+/i,''),sym,dol),sz};}
+/* ---------- assembler ---------- */
+function assemble(src){
+ const errs=[],sym={},raw=[],items=[],macros=new Map();let sec='text',dpos=0;
+ const lines=src.replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').split(/\r?\n/);
+ const E=(ln,m)=>errs.push({line:ln,msg:m});
+ lines.forEach((l0,li)=>{const ln=li+1;try{
+  let l=strip(l0),m;for(const[k,v]of macros)l=l.replace(new RegExp('\\b'+k+'\\b','g'),v);if(!l)return;
+  if((m=l.match(/^%assign\s+(\w+)\s+(.*)$/i))){sym[m[1].toLowerCase()]=ev(m[2],sym,0);return;}
+  if((m=l.match(/^%define\s+(\w+)\s+(.*)$/i))){macros.set(m[1],m[2]);return;}
+  if(/^(global|extern|bits|default|cpu|\.model|\.stack|\.386)/i.test(l))return;
+  if((m=l.match(/^(?:section|segment)\s*\.?(\w+)/i))){sec=m[1].toLowerCase();return;}
+  let label=null,rest=l;const DIR='(?:equ|db|dw|dd|resb|resw|resd|times)';
+  if((m=l.match(/^([A-Za-z_.@?][\w.@$?]*)\s*:\s*(.*)$/))){label=m[1];rest=m[2];}
+  else if((m=l.match(new RegExp('^([A-Za-z_.@?][\\w.@$?]*)\\s+('+DIR+'\\b.*)$','i')))&&!new RegExp('^'+DIR+'$','i').test(m[1])){label=m[1];rest=m[2];}
+  const dol=sec==='text'?TB+raw.length*4:DB+dpos;
+  const em=rest.match(/^equ\s+(.*)$/i);if(label&&em){sym[label.toLowerCase()]=ev(em[1],sym,dol);return;}
+  if(label)sym[label.toLowerCase()]=dol;
+  if(!rest)return;
+  let rep=0;const rm=rest.match(/^(rep|repe|repz|repne|repnz)\s+(.*)$/i);if(rm){rep=1;rest=rm[2];}
+  m=rest.match(/^(\S+)\s*(.*)$/);const mn=m[1].toLowerCase();let args=m[2];
+  if(mn==='times'){const t=args.match(/^(\S+)\s+(db|dw|dd|resb|resw|resd)\s*(.*)$/i);if(!t)throw new Error('bad TIMES');
+   const n=ev(t[1],sym,dol),op=t[2].toLowerCase();items.push({pos:dpos,op,args:t[3],n,ln});dpos+=n*dlen(op,t[3],sym,dol);return;}
+  if(mn in UNIT){items.push({pos:dpos,op:mn,args,n:1,ln});dpos+=dlen(mn,args,sym,dol);return;}
+  if(!(A2.includes(mn)||A1.includes(mn)||A0.includes(mn)||mn==='imul'||mn==='ret'||isJcc(mn)))throw new Error(`unknown or unsupported instruction '${m[1]}'`);
+  raw.push({mn,args,rep,ln,text:l0.trim()});
+ }catch(e){E(ln,e.message);}});
+ const out=[];for(const it of items)try{while(out.length<it.pos)out.push(0);for(let k=0;k<it.n;k++)emit(it.op,it.args,sym,DB+out.length,out);}catch(e){E(it.ln,e.message);}
+ const ins=[];raw.forEach((R,idx)=>{try{
+  const a=split(R.args).map(x=>parseOp(x,sym,TB+idx*4)),op=R.mn,I={op:isJcc(op)?'j':op,cc:isJcc(op)?op.slice(1):null,a,rep:R.rep,ln:R.ln,text:R.text,sz:4};
+  const bad=()=>{throw new Error('invalid combination of opcode and operands');};
+  const[mn,mx]=A2.includes(op)?[2,2]:A1.includes(op)||isJcc(op)?[1,1]:op==='imul'?[1,3]:op==='ret'?[0,1]:[0,0];
+  if(a.length<mn||a.length>mx)bad();
+  const flow=I.op==='j'||['jmp','call','loop','jecxz','jcxz','int','ret'].includes(op);
+  if(!flow&&a.length&&!['push','imul'].includes(op)&&a[0].t==='i'&&op!=='cmp'&&op!=='test'&&op!=='mul'&&op!=='div'&&op!=='idiv')throw new Error('invalid destination operand');
+  if(['mul','div','idiv'].includes(op)&&a[0].t==='i')bad();
+  if(a.length===2&&a[0].t==='m'&&a[1].t==='m')throw new Error('memory-to-memory operation is not allowed');
+  if(flow){a.forEach(o=>o.s=4);}
+  else if(op==='lea'){if(a[0].t!=='r'||a[1].t!=='m')bad();a[1].s=4;}
+  else if(op==='movzx'||op==='movsx'){if(a[0].t!=='r'||a[0].s===1||a[1].t==='i')bad();
+   if(a[1].t==='m'){if(!a[1].sz)throw new Error('operation size not specified (use BYTE/WORD)');a[1].s=a[1].sz;}if(a[1].s>=a[0].s)bad();}
+  else if(a.length){let s=0;const sh=['shl','sal','shr','sar'].includes(op);
+   const main=sh?[a[0]]:a;for(const o of main)if(o.t==='r'){if(s&&o.s!==s&&!(op==='imul'))throw new Error('operand size mismatch');s=s||o.s;}
+   if(!s)for(const o of main)if(o.sz){s=o.sz;break;}
+   if(!s&&op==='push')s=4;if(!s&&a.some(o=>o.t==='m'))throw new Error('operation size not specified (use BYTE/WORD/DWORD)');
+   for(const o of main)if(o.sz&&o.sz!==s&&o.t!=='r')throw new Error('operand size mismatch');
+   if(sh){if(a[1].t==='r'&&a[1].n!==undefined&&!(a[1].s===1&&a[1].i===1&&!a[1].h))throw new Error('shift count must be an immediate or CL');a[1].s=1;}
+   if(op==='imul'&&a.length===3&&(a[1].t==='i'||a[2].t!=='i'))bad();
+   I.sz=s||4;for(const o of a)if(o.t!=='r'&&!o.s)o.s=I.sz;}
+  if(op==='ret'&&a[0])a[0].s=4;
+  ins.push(I);}catch(e){E(R.ln,e.message);ins.push({op:'nop',a:[],ln:R.ln,text:R.text,sz:4});}});
+ const es=sym['_start'],entry=es>=TB&&es<TB+raw.length*4?es:TB;
+ return{ok:!errs.length,errors:errs,prog:{ins,image:Uint8Array.from(out),entry,heapStart:DB+((out.length+15)&~15),sym}};}
+/* ---------- CPU ---------- */
+class CPU{
+ constructor(prog){this.prog=prog;this.stdin='';this.limit=1000000;this.reset();}
+ reset(){const p=this.prog;this.r=new Uint32Array(8);this.r[4]=STOP;this.ip=p.entry;this.f={cf:0,zf:0,sf:0,of:0,pf:0,af:0,df:0};
+  this.mem=new Uint8Array(DS);this.mem.set(p.image,0);this.stk=new Uint8Array(SS);this.out='';this.steps=0;this.halted=false;this.status='ready';
+  this.error=null;this.exitCode=null;this.brk=p.heapStart;this.fs=new Map();this.fds=new Map();this.nextFd=3;this.inPos=0;this.hist=[];this.wlog=[];}
+ seg(a,n,w){if(a>=DB&&a+n<=DB+DS)return[this.mem,a-DB];if(a>=SB&&a+n<=SB+SS)return[this.stk,a-SB];
+  throw new SimError(`Segmentation fault: ${w?'write to':'read from'} invalid address 0x${hex(a)}`);}
+ rdm(a,s){const[b,o]=this.seg(a>>>0,s,0);let v=0;for(let i=s-1;i>=0;i--)v=v*256+b[o+i];return v;}
+ wrm(a,s,v){a>>>=0;const[b,o]=this.seg(a,s,1);this.wlog.push([a,s,v]);for(let i=0;i<s;i++){b[o+i]=v%256;v=Math.floor(v/256);}}
+ getReg(o){const v=this.r[o.i];return o.s===4?v:o.s===2?v&0xFFFF:o.h?(v>>>8)&255:v&255;}
+ setReg(o,v){const r=this.r,i=o.i;r[i]=o.s===4?v:o.s===2?(r[i]&0xFFFF0000)|v:o.h?(r[i]&0xFFFF00FF)|(v<<8):(r[i]&0xFFFFFF00)|v;}
+ ea(o){let a=o.d;if(o.b)a+=this.r[o.b.i];if(o.x)a+=this.r[o.x.i]*o.sc;return a>>>0;}
+ rd(o){return o.t==='r'?this.getReg(o):o.t==='i'?wrap(o.v,o.s):this.rdm(this.ea(o),o.s);}
+ wr(o,v){if(o.t==='r')this.setReg(o,v);else this.wrm(this.ea(o),o.s,v);}
+ szp(v,s){const f=this.f;f.zf=+(v===0);f.sf=+(v>=SG[s]);let x=v&255,c=0;while(x){c^=1;x&=x-1;}f.pf=c^1;}
+ arith(add,a,b,c,s){const f=this.f,full=add?a+b+c:a-b-c,r=wrap(full,s);f.cf=+(add?full>MK[s]:full<0);
+  f.of=+(add?((a^r)&(b^r)&SG[s])!==0:((a^b)&(a^r)&SG[s])!==0);f.af=+(((a^b^r)&16)!==0);this.szp(r,s);return r;}
+ logic(r,s){const f=this.f;f.cf=f.of=f.af=0;this.szp(r,s);return r;}
+ shift(op,a,n,s){n&=31;if(!n)return a;const f=this.f,bits=8*s,p=Math.pow(2,n);let r,cf;
+  if(op==='shl'||op==='sal'){r=(a*p)%P[s];cf=n<=bits?Math.floor(a/Math.pow(2,bits-n))%2:0;f.of=+((r>=SG[s]?1:0)!==cf);}
+  else if(op==='shr'){r=Math.floor(a/p);cf=Math.floor(a/Math.pow(2,n-1))%2;f.of=+(a>=SG[s]);}
+  else{const sa=sx(a,s);r=wrap(Math.floor(sa/p),s);cf=((Math.floor(sa/Math.pow(2,n-1))%2)+2)%2;f.of=0;}
+  f.cf=cf;f.af=0;this.szp(r,s);return r;}
+ flagsWord(){const f=this.f;return(2|f.cf|f.pf<<2|f.af<<4|f.zf<<6|f.sf<<7|f.df<<10|f.of<<11)>>>0;}
+ push(v,s=4){this.r[4]=(this.r[4]-s)>>>0;this.wrm(this.r[4],s,v);}
+ step(){if(this.halted)return null;const ip=this.ip,I=this.prog.ins[(ip-TB)/4];
+  try{if(this.steps>=this.limit)throw new SimError(`Execution limit reached (${this.limit} instructions): possible infinite loop`);
+   if(!I)throw new SimError((ip-TB)/4===this.prog.ins.length?'Execution ran past the last instruction (missing exit syscall or HLT)':`Invalid EIP 0x${hex(ip)}: not an instruction address`);
+   const rb=this.r.slice(),fb={...this.f};this.wlog=[];this.ip=ip+4;this.exec(I);this.steps++;
+   const ch=[];R32.forEach((n,i)=>{if(rb[i]!==this.r[i])ch.push(`${n.toUpperCase()}: ${hex(rb[i])} → ${hex(this.r[i])}`);});
+   for(const k in fb)if(fb[k]!==this.f[k])ch.push(`${k.toUpperCase()}: ${fb[k]}→${this.f[k]}`);
+   for(const[a,s,v]of this.wlog)ch.push(`[${hex(a)}] ← ${hex(v,s*2)}`);
+   const rec={n:this.steps,ln:I.ln,text:I.text,ch};this.hist.push(rec);if(this.hist.length>1000)this.hist.shift();return rec;
+  }catch(e){this.ip=ip;this.halted=true;this.status='error';
+   const se=e instanceof SimError?e:new SimError('Internal error: '+e.message);se.line=se.line||(I&&I.ln);this.error=se;throw se;}}
+ run(max=Infinity){let n=0;while(!this.halted&&n<max){this.step();n++;}return n;}
+ exec(I){const{op,a}=I,A=a[0],B=a[1],s=I.sz,f=this.f,r=this.r;
+  switch(op){
+  case'mov':this.wr(A,this.rd(B));break;
+  case'movzx':this.wr(A,this.rd(B));break;
+  case'movsx':this.wr(A,wrap(sx(this.rd(B),B.s),A.s));break;
+  case'lea':this.wr(A,wrap(this.ea(B),A.s));break;
+  case'add':case'adc':case'sub':case'sbb':case'cmp':{const c=(op==='adc'||op==='sbb')?f.cf:0,v=this.arith(op==='add'||op==='adc',this.rd(A),this.rd(B),c,s);if(op!=='cmp')this.wr(A,v);break;}
+  case'inc':case'dec':{const cf=f.cf,v=this.arith(op==='inc',this.rd(A),1,0,s);f.cf=cf;this.wr(A,v);break;}
+  case'neg':this.wr(A,this.arith(false,0,this.rd(A),0,s));break;
+  case'not':this.wr(A,MK[s]-this.rd(A));break;
+  case'and':case'or':case'xor':case'test':{const x=this.rd(A),y=this.rd(B);let v=op==='or'?(x|y):op==='xor'?(x^y):(x&y);v=wrap(v,s);this.logic(v,s);if(op!=='test')this.wr(A,v);break;}
+  case'shl':case'sal':case'shr':case'sar':this.wr(A,this.shift(op,this.rd(A),this.rd(B),s));break;
+  case'xchg':{const x=this.rd(A),y=this.rd(B);this.wr(A,y);this.wr(B,x);break;}
+  case'cdq':r[2]=r[0]&0x80000000?0xFFFFFFFF:0;break;
+  case'mul':case'imul':if(op==='mul'||a.length===1){const sg=op==='imul',b=BigInt(sg?sx(this.rd(A),s):this.rd(A)),bits=8*s;
+    const x=BigInt(s===1?this.getReg(AL):s===2?this.getReg(AX):r[0]),p=(sg?BigInt(sx(Number(x),s)):x)*b,u=BigInt.asUintN(2*bits,p);
+    if(s===1)this.setReg(AX,Number(u));else if(s===2){this.setReg(AX,Number(u&0xFFFFn));this.setReg(DX,Number(u>>16n));}else{r[0]=Number(u&0xFFFFFFFFn);r[2]=Number(u>>32n);}
+    f.cf=f.of=+(sg?BigInt.asIntN(bits,p)!==p:p>BigInt(MK[s]));}
+   else{const x=a.length===3?this.rd(a[1]):this.rd(A),y=a.length===3?this.rd(a[2]):this.rd(B),p=BigInt(sx(x,s))*BigInt(sx(y,s));
+    this.wr(A,Number(BigInt.asUintN(8*s,p)));f.cf=f.of=+(BigInt.asIntN(8*s,p)!==p);}break;
+  case'div':case'idiv':{const sg=op==='idiv',bits=8*s,raw=this.rd(A);if(raw===0)throw new SimError('Divide error (#DE): division by zero');
+   const lo=BigInt(s===1?this.getReg(AX):s===2?this.getReg(AX):r[0]),hi=s===1?0n:BigInt(s===2?this.getReg(DX):r[2]);
+   let n=s===1?lo:(hi<<BigInt(bits))|lo,d=BigInt(raw);if(sg){n=BigInt.asIntN(2*bits,n);d=BigInt(sx(raw,s));}
+   const q=n/d,m=n%d;if(sg?BigInt.asIntN(bits,q)!==q:q>BigInt(MK[s]))throw new SimError('Divide error (#DE): quotient overflow');
+   const uq=Number(BigInt.asUintN(bits,q)),um=Number(BigInt.asUintN(bits,m));
+   if(s===1){this.setReg(AL,uq);this.setReg(AH,um);}else if(s===2){this.setReg(AX,uq);this.setReg(DX,um);}else{r[0]=uq;r[2]=um;}break;}
+  case'push':this.push(this.rd(A),A.t==='r'?A.s:4);break;
+  case'pop':{const z=A.t==='r'?A.s:4,v=this.rdm(r[4],z);r[4]=(r[4]+z)>>>0;this.wr(A,v);break;}
+  case'jmp':this.ip=this.rd(A);break;
+  case'j':if(CC[I.cc](f))this.ip=this.rd(A);break;
+  case'loop':r[1]=(r[1]-1)>>>0;if(r[1])this.ip=this.rd(A);break;
+  case'jecxz':case'jcxz':if(!r[1])this.ip=this.rd(A);break;
+  case'call':{const t=this.rd(A);this.push(this.ip);this.ip=t;break;}
+  case'ret':{const t=this.rdm(r[4],4);r[4]=(r[4]+4+(A?A.v:0))>>>0;this.ip=t;break;}
+  case'nop':break;
+  case'hlt':this.halted=true;this.status='halted';break;
+  case'cld':f.df=0;break;case'std':f.df=1;break;case'clc':f.cf=0;break;case'stc':f.cf=1;break;
+  case'int':if(this.rd(A)!==0x80)throw new SimError(`Unsupported interrupt 0x${hex(this.rd(A),2)} (only INT 0x80 is supported)`);this.sys();break;
+  default:{const base=op.slice(0,4),u={b:1,w:2,d:4}[op[4]];let c=I.rep?r[1]:1;const dir=f.df?-u:u;
+   if(!u)throw new SimError('unsupported instruction '+op);
+   while(c>0){if(base==='stos')this.wrm(r[7],u,wrap(r[0],u));else if(base==='movs'){this.wrm(r[7],u,this.rdm(r[6],u));r[6]=(r[6]+dir)>>>0;}
+    else{this.setReg(mk(0,u),this.rdm(r[6],u));r[6]=(r[6]+dir)>>>0;}
+    if(base!=='lods')r[7]=(r[7]+dir)>>>0;c--;if(I.rep)r[1]=(r[1]-1)>>>0;}}}}
+ cstr(a){let s='';for(let i=0;i<4096;i++){const c=this.rdm(a+i,1);if(!c)break;s+=String.fromCharCode(c);}return s;}
+ sys(){const r=this.r,n=r[0],fd=r[3],buf=r[1],cnt=r[2];let v=0;
+  switch(n){
+  case 1:this.halted=true;this.status='exited';this.exitCode=fd&255;return;
+  case 4:{const by=[];for(let i=0;i<cnt;i++)by.push(this.rdm(buf+i,1));
+   if(fd===1||fd===2){for(const b of by)this.out+=String.fromCharCode(b);v=cnt;}
+   else{const h=this.fds.get(fd);if(!h||h.acc===0)v=-9;else{const arr=this.fs.get(h.name);if(h.app)h.pos=arr.length;for(const b of by){while(arr.length<h.pos)arr.push(0);arr[h.pos++]=b;}v=cnt;}}break;}
+  case 3:{if(fd===0){const t=this.stdin.substr(this.inPos,cnt);this.inPos+=t.length;for(let i=0;i<t.length;i++)this.wrm(buf+i,1,t.charCodeAt(i)&255);v=t.length;}
+   else{const h=this.fds.get(fd);if(!h||h.acc===1)v=-9;else{const arr=this.fs.get(h.name),k=Math.max(0,Math.min(cnt,arr.length-h.pos));for(let i=0;i<k;i++)this.wrm(buf+i,1,arr[h.pos+i]);h.pos+=k;v=k;}}break;}
+  case 5:case 8:{const name=this.cstr(fd),fl=n===8?0o1101:buf,acc=n===8?1:fl&3;
+   if(!this.fs.has(name)){if(fl&64)this.fs.set(name,[]);else{v=-2;break;}}
+   if(fl&512)this.fs.set(name,[]);const nf=this.nextFd++;this.fds.set(nf,{name,pos:0,acc,app:!!(fl&1024)});v=nf;break;}
+  case 6:v=this.fds.delete(fd)?0:-9;break;
+  case 19:{const h=this.fds.get(fd);if(!h){v=-9;break;}const len=this.fs.get(h.name).length,o=buf|0,w=cnt;const np=w===0?o:w===1?h.pos+o:len+o;if(np<0||w>2)v=-22;else{h.pos=np;v=np;}break;}
+  case 45:{if(fd>=this.prog.heapStart&&fd<=DB+DS)this.brk=fd;v=this.brk;break;}
+  default:throw new SimError(`Unsupported system call: eax=${n}`);}
+  r[0]=v>>>0;}
+}
+const API={assemble,CPU,SimError,hex,TB,DB,DS,SB,SS,STOP,R32};
+if(typeof module!=='undefined')module.exports=API;else root.X86=API;
+})(this);
+</script><script>/* Programs from the uploaded lab manuals (extracted automatically) + extra samples */
+window.EXAMPLES=[
+ {
+  "name": "Sample – add two numbers",
+  "code": "; EAX=7+5 -> EAX=12, EBX=5\nsection .text\nglobal _start\n_start:\n  mov eax, 7\n  mov ebx, 5\n  add eax, ebx\n  hlt"
+ },
+ {
+  "name": "Sample – loop (sum 1..10 = 55)",
+  "code": "section .text\nglobal _start\n_start:\n  mov ecx, 10\n  xor eax, eax\nagain:\n  add eax, ecx\n  loop again      ; ECX counts down, EAX=55\n  hlt"
+ },
+ {
+  "name": "Sample – signed vs unsigned jumps",
+  "code": "; -1 < 1 signed (JL taken); 0xFFFFFFFF > 1 unsigned (JA taken)\nsection .text\n_start:\n  mov eax, -1\n  cmp eax, 1\n  jl  signed_less\n  mov ebx, 0\n  jmp next\nsigned_less:\n  mov ebx, 1\nnext:\n  cmp eax, 1\n  ja  unsigned_above\n  mov edx, 0\n  hlt\nunsigned_above:\n  mov edx, 1      ; EBX=1, EDX=1\n  hlt"
+ },
+ {
+  "name": "Sample – PUSH/POP and CALL/RET",
+  "code": "section .text\n_start:\n  mov eax, 0x11111111\n  push eax\n  push dword 0x22222222\n  call twice\n  pop ebx          ; EBX=0x22222222\n  pop ecx          ; ECX=0x11111111\n  hlt\ntwice:\n  mov edx, [esp+4]\n  add edx, edx     ; EDX=0x44444444\n  ret"
+ },
+ {
+  "name": "Sample – read stdin, echo it",
+  "code": "; type text in the Input box (Output tab) before running\nsection .bss\nbuf resb 64\nsection .text\n_start:\n  mov eax, 3\n  mov ebx, 0\n  mov ecx, buf\n  mov edx, 64\n  int 0x80         ; EAX = bytes read\n  mov edx, eax\n  mov eax, 4\n  mov ebx, 1\n  mov ecx, buf\n  int 0x80\n  mov eax, 1\n  xor ebx, ebx\n  int 0x80"
+ },
+ {
+  "name": "Lab 9 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov ax, 8h ;getting 8 in the ax\nand ax, 1 ;and ax with 1\njz evnn\nmov eax, 4 ;system call number (sys_write)\nmov ebx, 1 ;file descriptor (stdout)\nmov ecx, odd_msg ;message to write\nmov edx, len2 ;length of message\nint 0x80 ;call kernel\njmp outprog\nevnn:\nmov eax, 4 ;system call number (sys_write)\nmov ebx, 1 ;file descriptor (stdout)\nmov ecx, even_msg ;message to write\nmov edx, len1 ;length of message\nint 0x80 ;call kernel\noutprog:\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\neven_msg db 'Even Number!' ;message showing even number\nlen1 equ $ - even_msg\nodd_msg db 'Odd Number!' ;message showing odd number\nlen2 equ $ - odd_msg"
+ },
+ {
+  "name": "Lab 9 – program 2",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov al, 5 ;getting 5 in the al\nmov bl, 3 ;getting 3 in the bl\nor al, bl ;or al and bl registers, result should be 7\nadd al, byte '0' ;converting decimal to ascii\nmov [result], al\nmov eax, 4\nmov ebx, 1\nmov ecx, result\nmov edx, 1\nint 0x80\noutprog:\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .bss\nresult resb 1"
+ },
+ {
+  "name": "Lab 11 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov ecx,'4'\nsub ecx, '0'\nmov edx, '5'\nsub edx, '0'\ncall sum ;call sum procedure\nmov [res], eax\nmov ecx, msg\nmov edx, len\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov ecx, res\nmov edx, 1\nmov ebx, 1 ;file descriptor (stdout)\nmov eax, 4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsum:\nmov eax, ecx\nadd eax, edx\nadd eax, '0'\nret\nsection .data\nmsg db \"The sum is:\", 0xA,0xD\nlen equ $- msg\nsegment .bss\nres resb 1"
+ },
+ {
+  "name": "Lab 12 – program 1",
+  "code": "section .text\nglobal _start   ;must be declared for linker (ld)\n_start:\nmov  edx,1      ;message length\nmov  ecx, x  ;message to write\nmov  ebx, 1     ;file descriptor (stdout)\nmov  eax, 4     ;system call number (sys_write)\nint  0x80       ;call kernel\nmov  edx,1      ;message length\nmov  ecx, x+1  ;message to write\nmov  ebx, 1     ;file descriptor (stdout)\nmov  eax, 4     ;system call number (sys_write)\nint  0x80\nmov  edx,1      ;message length\nmov  ecx, x+2  ;message to write\nmov  ebx, 1     ;file descriptor (stdout)\nmov  eax, 4     ;system call number (sys_write)\nint  0x80\nmov  eax, 1     ;system call number (sys_exit)\nmov ebx,0\nint  0x80       ;call kernel\nsection .data\nx  db  '2','3','4'"
+ },
+ {
+  "name": "Lab 12 – program 2",
+  "code": "section .text\nglobal _start   ;must be declared for linker (ld)\n_start:\nmov  eax,3      ;number bytes to be summed\nmov  ebx,0      ;EBX will store the sum\nmov  ecx, x     ;ECX will point to the current element to be summed\ntop:  add  ebx, [ecx]\nadd  ecx,1      ;move pointer to next element\ndec  eax        ;decrement counter\njnz  top        ;if counter not 0, then loop again\ndone:\nadd   ebx, '0'\nmov  [sum], ebx ;done, store result in \"sum\"\ndisplay:\nmov  edx,1      ;message length\nmov  ecx, sum   ;message to write\nmov  ebx, 1     ;file descriptor (stdout)\nmov  eax, 4     ;system call number (sys_write)\nint  0x80       ;call kernel\nmov  eax, 1     ;system call number (sys_exit)\nint  0x80       ;call kernel\nsection .data\nx db 2,3,4\nsum db  0"
+ },
+ {
+  "name": "Lab 13 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov ecx,10\nmov eax, '1'\nl1:\nmov [num], eax\nmov eax, 4\nmov ebx, 1\npush ecx\nmov ecx, num\nmov edx, 1\nint 0x80\nmov eax, [num]\nsub eax, '0'\ninc eax\nadd eax, '0'\npop ecx\nloop l1\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .bss\nnum resb 1"
+ },
+ {
+  "name": "Lab 14 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov bx, 3 ;for calculating factorial 3\ncall proc_fact\nadd ax, 30h\nmov [fact], ax\nmov edx,len ;message length\nmov ecx,msg ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov edx,1 ;message length\nmov ecx,fact ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nproc_fact:\ncmp bl, 1\njg do_calculation\nmov ax, 1\nret\ndo_calculation:\ndec bl\ncall proc_fact\ninc bl\nmul bl ;ax = al * bl\nret\nsection .data\nmsg db 'Factorial 3 is:',0xa\nlen equ $ - msg\nsection .bss\nfact resb 1"
+ },
+ {
+  "name": "Lab 15 – program 1",
+  "code": "section .text\nglobal _start\n_start:\nmov  eax, 8\nmov  ebx, file_name ; file create\nmov  ecx, 0777\nint  0x80\nmov [fd_out], eax\nmov  edx,len       ;msg write in file\nmov  ecx, msg\nmov  ebx, [fd_out]\nmov  eax,4\nint  0x80\nmov eax, 6 ;close file\nmov ebx, [fd_out]\nmov eax, 4 ; write on screen\nmov ebx, 1\nmov ecx, msg_done\nmov edx, len_done\nint  0x80\nmov eax, 5 ;open file\nmov ebx, file_name\nmov ecx, 0\nmov edx, 0777\nint  0x80\nmov  [fd_in], eax\nmov eax, 3 ;read file\nmov ebx, [fd_in]\nmov ecx, info\nmov edx, 26\nint 0x80\nmov eax, 6 ;close file\nmov ebx, [fd_in]\nint  0x80\nmov eax, 4 ; read val print on screen\nmov ebx, 1\nmov ecx, info\nmov edx, 26\nint 0x80\nmov  eax,1\nint  0x80\nsection .data\nfile_name db 'myfile.txt' , 0\nmsg db 'Welcome to Tutorials Point'\nlen equ  $ - msg\nmsg_done db 'Written to file', 0xa\nlen_done equ $ - msg_done\nsection .bss\nfd_out resd 1\nfd_in  resd 1\ninfo resb  26"
+ },
+ {
+  "name": "Lab 16 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov eax, 45 ;sys_brk\nxor ebx, ebx\nint 80h\nadd eax, 16384 ;number of bytes to be reserved\nmov ebx, eax\nmov eax, 45 ;sys_brk\nint 80h\ncmp eax, 0\njl exit ;exit, if error\nmov edi, eax ;EDI = highest available address\nsub edi, 4 ;pointing to the last DWORD\nmov ecx, 4096 ;number of DWORDs allocated\nxor eax, eax ;clear eax\nstd ;backward\nrep stosd ;repete for entire allocated area\ncld ;put DF flag to normal state\nmov eax, 4\nmov ebx, 1\nmov ecx, msg\nmov edx, len\nint 80h ;print a message\nexit:\nmov eax, 1\nxor ebx, ebx\nint 80h\nsection .data\nmsg db \"Allocated 16 kb of memory!\", 10\nlen equ $ - msg"
+ },
+ {
+  "name": "Lab 4 – program 2",
+  "code": "section .text\nglobal _start ;must be declared for linker (ld)\n_start: ;tells linker entry point\nmov edx,len ;message length\nmov ecx,msg ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nmsg db 'Hello, world!', 0xa ;string to be printed\nlen equ $ - msg ;length of the string"
+ },
+ {
+  "name": "Lab 4 – program 3",
+  "code": "section .text\nglobal _start ;must be declared for linker (gcc)\n_start: ;tell linker entry point\nmov edx,len ;message length\nmov ecx,msg ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov edx,9 ;message length\nmov ecx,s2 ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nmsg db 'Displaying 9 stars',0xa ;a message\nlen equ $ - msg ;length of message\ns2 times 9 db '+'"
+ },
+ {
+  "name": "Lab 5 – program 1",
+  "code": "section .text\nglobal_start ;must be declared for linker (ld)\n_start: ;tell linker entry point\n;writing the name 'Zara Ali'\nmov edx,9 ;message length\nmov ecx, name ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov [name], dword 'Nuha' ; Changed the name to Nuha Ali\n;writing the name 'Nuha Ali'\nmov edx,8 ;message length\nmov ecx,name ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nname db 'Zara Ali '"
+ },
+ {
+  "name": "Lab 5 – program 2",
+  "code": "section .text\nglobal _start ;must be declared for linker (gcc)\n_start: ;tell linker entry point\nmov edx,1 ;message length\nmov ecx,choice ;message to write\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nchoice DB 'y'"
+ },
+ {
+  "name": "Lab 6 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov eax, SYS_WRITE\nmov ebx, STDOUT\nmov ecx, msg1\nmov edx, len1\nint 0x80\nmov eax, SYS_WRITE\nmov ebx, STDOUT\nmov ecx, msg2\nmov edx, len2\nint 0x80\nmov eax, SYS_WRITE\nmov ebx, STDOUT\nmov ecx, msg3\nmov edx, len3\nint 0x80\nmov eax,SYS_EXIT ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nmsg1 db 'Hello, programmers!',0xA,0xD\nlen1 equ $ - msg1\nmsg2 db 'Welcome to the world of,', 0xA,0xD\nlen2 equ $ - msg2\nmsg3 db 'Linux assembly programming! '\nlen3 equ $- msg3\nSYS_EXIT equ 1\nSYS_WRITE equ 4\nSTDIN equ 0\nSTDOUT equ 1"
+ },
+ {
+  "name": "Lab 7 – program 1",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov eax,'3'\nsub eax, '0'\nmov ebx, '4'\nsub ebx, '0'\nadd eax, ebx\nadd eax, '0'\nmov [sum], eax\nmov ecx,msg\nmov edx, len\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov ecx,sum\nmov edx, 1\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nmsg db \"The sum is:\", 0xA,0xD\nlen equ $ - msg\nsegment .bss\nsum resb 1"
+ },
+ {
+  "name": "Lab 7 – program 2",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov al,'3'\nsub al, '0'\nmov bl, '2'\nsub bl, '0'\nmul bl\nadd al, '0'\nmov [res], al\nmov ecx,msg\nmov edx, len\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov ecx,res\nmov edx, 1\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nmsg db \"The result is:\", 0xA,0xD\nlen equ $- msg\nsegment .bss\nres resb 1"
+ },
+ {
+  "name": "Lab 7 – program 3",
+  "code": "section .text\nglobal _start ;must be declared for using gcc\n_start: ;tell linker entry point\nmov ax,'8'\nsub ax, '0'\nmov bl, '2'\nsub bl, '0'\ndiv bl\nadd ax, '0'\nmov [res], ax\nmov ecx,msg\nmov edx, len\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov ecx,res\nmov edx, 1\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax,1 ;system call number (sys_exit)\nint 0x80 ;call kernel\nsection .data\nmsg db \"The result is:\", 0xA,0xD\nlen equ $- msg\nsegment .bss\nres resb 1"
+ },
+ {
+  "name": "Lab 8 – program 1",
+  "code": "section .text\nglobal _start\n_start: ;tell linker entry point\nmov ecx, [num1]\ncmp ecx, [num2]\njg check_third_num\nmov ecx, [num2]\ncheck_third_num:\ncmp ecx, [num3]\njg _exit\nmov ecx, [num3]\n_exit:\nmov [largest], ecx\nmov ecx,msg\nmov edx, len\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov ecx,largest\nmov edx, 2\nmov ebx,1 ;file descriptor (stdout)\nmov eax,4 ;system call number (sys_write)\nint 0x80 ;call kernel\nmov eax, 1\nint 80h\nsection .data\nmsg db \"The largest digit is: \", 0xA,0xD\nlen equ $- msg\nnum1 dd '47'\nnum2 dd '22'\nnum3 dd '31'\nsegment .bss\nlargest resb 2"
+ }
+];</script>
+<script>
+const X=window.X86,$=id=>document.getElementById(id),esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const src=$('src'),pre=$('pre'),gut=$('gut');
+let cpu=null,dirty=true,running=false,timer=null,paused=false,cur=0,prevR=null,tab='out',errs=[],bps=new Set(),errLines=new Set(),conHtml='',memAddr=X.DB;
+const REGS='e?[abcd]x|[abcd][lh]|e?[sd]i|e?[sb]p|eip',INS='mov|movzx|movsx|lea|add|adc|sub|sbb|inc|dec|mul|imul|div|idiv|and|or|xor|not|neg|shl|sal|shr|sar|cmp|test|jmp|j[a-z]{1,3}|call|ret|push|pop|nop|hlt|int|loop|xchg|cdq|cld|std|clc|stc|rep|repe|repne|stos[bwd]|movs[bwd]|lods[bwd]';
+const RE=new RegExp(`(;.*$)|('[^']*'|"[^"]*")|(^\\s*[\\w.$@]+:)|\\b(${REGS})\\b|(\\b0x[0-9a-f]+\\b|\\b[0-9][0-9a-f]*h\\b|\\b[01]+b\\b|\\b\\d+\\b)|(%\\w+|\\b(?:section|segment|global|extern|equ|times|db|dw|dd|resb|resw|resd|byte|word|dword|ptr|offset|dup)\\b)|\\b(${INS})\\b`,'gi');
+const hl=l=>esc(l).replace(RE,(m,c,s,lb,r,n,d,i)=>c?`<span class=c>${m}</span>`:s?`<span class=s>${m}</span>`:lb?`<span class=lb>${m}</span>`:r?`<span class=r>${m}</span>`:n?`<span class=n>${m}</span>`:d?`<span class=d>${m}</span>`:`<span class=k>${m}</span>`);
+function paint(){const L=src.value.split('\n');
+ pre.innerHTML=L.map((l,i)=>`<div class="l${cur===i+1?' cur':''}${errLines.has(i+1)?' er':''}">${hl(l)||' '}</div>`).join('');
+ gut.innerHTML=L.map((_,i)=>`<div class="${bps.has(i+1)?'bp':''}${cur===i+1?' cur':''}" data-l="${i+1}" title="Click: toggle breakpoint">${i+1}</div>`).join('');sync();}
+const sync=()=>{pre.style.transform=`translate(${-src.scrollLeft}px,${-src.scrollTop}px)`;gut.scrollTop=src.scrollTop;};
+src.addEventListener('scroll',sync);
+src.addEventListener('input',()=>{dirty=true;errLines.clear();paint();setStatus();});
+src.addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ');}});
+gut.addEventListener('click',e=>{const l=+e.target.dataset.l;if(l){bps.has(l)?bps.delete(l):bps.add(l);paint();}});
+/* ---------- logging ---------- */
+function log(m,k=''){conHtml+=`<div class="${k}"><span class=dim>${new Date().toLocaleTimeString()}</span> ${esc(m)}</div>`;$('p-con').innerHTML=conHtml;$('p-con').scrollTop=1e9;}
+function setStatus(){let t='Ready',c='var(--dim)';
+ if(errs.length&&(!cpu||cpu.status==='error')&&!running){t='Error';c='var(--bad)';}else if(running){t='Running';c='var(--ok)';}
+ else if(dirty){t=cpu?'Modified – re-assemble':'Not assembled';c='var(--warn)';}
+ else if(cpu&&cpu.status==='error'){t='Error';c='var(--bad)';}else if(cpu&&cpu.halted){t=cpu.status==='exited'?`Exited (code ${cpu.exitCode})`:'Halted (HLT)';c='var(--acc)';}
+ else if(paused){t='Paused';c='var(--warn)';}else if(cpu){t=cpu.steps?'Stopped (stepping)':'Assembled – ready';c='var(--ok)';}
+ $('stt').textContent=t;$('dot').style.background=c;
+ $('bP').disabled=!running;for(const b of['bA','bR','bS','bC'])$(b).disabled=running;}
+/* ---------- assemble / control ---------- */
+function doAssemble(){const res=X.assemble(src.value);errs=res.errors.map(e=>({line:e.line,msg:e.msg,k:'assemble'}));errLines=new Set(errs.map(e=>e.line));
+ if(!res.ok){cpu=null;dirty=true;log(`Assembly failed: ${errs.length} error(s)`,'e');tabTo('err');render();return false;}
+ cpu=new X.CPU(res.prog);cpu.stdin=$('stdin').value;cpu.limit=+$('lim').value||1e6;dirty=false;prevR=null;
+ log(`Assembled OK: ${res.prog.ins.length} instructions, ${res.prog.image.length} data bytes, entry 0x${X.hex(res.prog.entry)}`,'o');render();return true;}
+const ensure=()=>(!dirty&&cpu)||doAssemble();
+function fail(e){running=false;clearTimeout(timer);errs.push({line:e.line,msg:e.message,k:'runtime'});if(e.line)errLines.add(e.line);log(`Runtime error${e.line?' (line '+e.line+')':''}: ${e.message}`,'e');tabTo('err');}
+function stepOnce(){if(!ensure())return;if(cpu.halted){log('Program already finished – press Reset or Run to restart.','w');return;}
+ cpu.limit=+$('lim').value||1e6;prevR=cpu.r.slice();try{cpu.step();}catch(e){fail(e);}render();}
+function loop(){if(!running)return;const m=$('sp').value,per=m==='max'?20000:1,dl=m==='slow'?500:m==='fast'?20:0;
+ try{for(let i=0;i<per&&!cpu.halted;i++){prevR=cpu.r.slice();cpu.step();const I=cpu.prog.ins[(cpu.ip-X.TB)/4];
+  if(!cpu.halted&&I&&bps.has(I.ln)){running=false;paused=true;log(`Breakpoint at line ${I.ln}`,'w');}if(!running)break;}}catch(e){fail(e);}
+ if(cpu.halted&&running){running=false;log(`Program finished: ${cpu.status}${cpu.exitCode!==null?' (exit code '+cpu.exitCode+')':''}, ${cpu.steps} instructions`,'o');}
+ render();if(running)timer=setTimeout(loop,dl);}
+function start(){cpu.limit=+$('lim').value||1e6;running=true;paused=false;setStatus();loop();}
+function pause(){if(!running)return;running=false;paused=true;clearTimeout(timer);log('Paused','w');render();}
+function reset(){running=false;paused=false;clearTimeout(timer);errs=errs.filter(e=>e.k==='assemble'&&dirty);errLines=new Set(errs.map(e=>e.line));
+ if(cpu&&!dirty){cpu.reset();cpu.stdin=$('stdin').value;prevR=null;log('Reset: CPU, memory, stack and output restored to initial state.');}render();}
+$('bA').onclick=()=>doAssemble();
+$('bR').onclick=()=>{running=false;clearTimeout(timer);if(doAssemble()){log('Run (from start)');start();}};
+$('bS').onclick=stepOnce;
+$('bC').onclick=()=>{if(!ensure())return;if(cpu.halted){log('Program finished – press Reset or Run.','w');return;}log('Continue');start();};
+$('bP').onclick=pause;$('bX').onclick=reset;
+$('bK').onclick=()=>{src.value='';dirty=true;cpu=null;errs=[];errLines.clear();bps.clear();cur=0;render();paint();};
+$('bT').onclick=()=>{const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';};
+$('stdin').oninput=()=>{if(cpu)cpu.stdin=$('stdin').value;};
+const exs=window.EXAMPLES;$('ex').innerHTML='<option value="">Load example…</option>'+exs.map((e,i)=>`<option value="${i}">${esc(e.name)}</option>`).join('');
+$('ex').onchange=e=>{if(e.target.value==='')return;running=false;clearTimeout(timer);src.value=exs[+e.target.value].code;dirty=true;cpu=null;errs=[];errLines.clear();bps.clear();log('Loaded: '+exs[+e.target.value].name);e.target.value='';render();paint();};
+/* ---------- rendering ---------- */
+const TABS=[['out','Output'],['con','Console'],['his','History'],['stk','Stack'],['mem','Memory'],['err','Errors']];
+function tabTo(t){tab=t;renderTabs();}
+function renderTabs(){$('tabs').innerHTML=TABS.map(([k,n])=>`<button data-t="${k}" class="${k===tab?'on':''}">${n}${k==='err'&&errs.length?` (${errs.length})`:''}</button>`).join('');
+ for(const[k]of TABS)$('p-'+k).classList.toggle('on',k===tab);renderPane();}
+$('tabs').onclick=e=>{if(e.target.dataset.t)tabTo(e.target.dataset.t);};
+const rb=a=>{try{return cpu.rdm(a,1);}catch(e){return null;}};
+function renderPane(){const c=cpu;
+ if(tab==='out')$('out').textContent=c?c.out:'';
+ else if(tab==='his')$('p-his').innerHTML=!c||!c.hist.length?'<span class=dim>No instructions executed yet.</span>':'<table><tr class=dim><th>#<th>Line<th>Instruction<th>State changes</tr>'+c.hist.slice(-200).reverse().map(h=>`<tr><td>${h.n}<td>${h.ln}<td>${esc(h.text)}<td class=dim>${esc(h.ch.join('   ')||'–')}</tr>`).join('')+'</table>';
+ else if(tab==='stk'){if(!c){$('p-stk').innerHTML='<span class=dim>Assemble a program first.</span>';return;}const esp=c.r[4],ebp=c.r[5];
+  let h=`<div class=dim>ESP=0x${X.hex(esp)}  EBP=0x${X.hex(ebp)}  (stack grows downward; base 0x${X.hex(X.STOP)})</div>`;
+  if(esp>=X.STOP)h+='<div class=dim>(stack empty)</div>';else for(let a=esp;a+4<=X.STOP&&a<esp+512;a+=4){h+=`<div>${X.hex(a)}:  ${X.hex(c.rdm(a,4))}${a===esp?'  ← ESP':''}${a===ebp?'  ← EBP':''}</div>`;}
+  $('p-stk').innerHTML=h;}
+ else if(tab==='mem')renderMem();
+ else if(tab==='err')$('p-err').innerHTML=errs.length?errs.map(e=>`<div class=e>[${e.k}] ${e.line?'Line '+e.line+': ':''}${esc(e.msg)}</div>`).join(''):'<span class=dim>No errors.</span>';}
+function renderMem(){if(!cpu){$('memv').innerHTML='<span class=dim>Assemble a program first.</span>';return;}
+ const sz=+$('msz').value,base=(memAddr>>>0)-((memAddr>>>0)%16);let h='<span class=dim>Address   '+Array.from({length:16/sz},(_,i)=>('+'+(i*sz).toString(16)).padEnd(sz*2+1)).join('')+' ASCII</span>\n';
+ for(let row=0;row<16;row++){const a=base+row*16;let cells='',asc='';
+  for(let c=0;c<16;c+=sz){const bs=[];for(let k=0;k<sz;k++)bs.push(rb(a+c+k));cells+=(bs.includes(null)?'--'.repeat(sz):bs.reverse().map(b=>X.hex(b,2)).join(''))+' ';}
+  for(let c=0;c<16;c++){const b=rb(a+c);asc+=b===null?'·':b>=32&&b<127?esc(String.fromCharCode(b)):'.';}
+  h+=`${X.hex(a)}  ${cells} ${asc}\n`;}$('memv').innerHTML=h;}
+const go=()=>{const v=parseInt($('ma').value,16);if(!isNaN(v))memAddr=v;renderMem();};
+$('mg').onclick=go;$('ma').onkeydown=e=>{if(e.key==='Enter')go();};$('msz').onchange=renderMem;
+$('md').onclick=()=>{memAddr=X.DB;$('ma').value=X.hex(X.DB);renderMem();};$('ms').onclick=()=>{memAddr=cpu?cpu.r[4]:X.SB;$('ma').value=X.hex(memAddr);renderMem();};
+$('mw').onclick=()=>{if(!cpu)return log('Assemble first.','e');try{const a=parseInt($('wa').value,16),v=parseInt($('wv').value,16),s=+$('ws').value;if(isNaN(a)||isNaN(v))throw new Error('Enter hex address and value');
+ cpu.wlog=[];cpu.wrm(a,s,v>>>0);log(`Memory write: [0x${X.hex(a)}] ← 0x${X.hex(v,s*2)} (${s} byte${s>1?'s':''})`,'o');render();}catch(e){log('Memory write failed: '+e.message,'e');}};
+function render(){const c=cpu;
+ cur=0;if(c&&!c.halted){const I=c.prog.ins[(c.ip-X.TB)/4];if(I)cur=I.ln;}else if(c&&c.error&&c.error.line)cur=c.error.line;
+ const order=[0,3,1,2,6,7,5,4],R=X.R32;
+ $('regs').innerHTML=order.map(i=>{const v=c?c.r[i]:0,ch=c&&prevR&&prevR[i]!==v;return`<tr class="${ch?'ch':''}"><td><b>${R[i].toUpperCase()}</b><td class=m>${X.hex(v)}<td class="m dim">${v}</tr>`;}).join('')+`<tr><td><b>EIP</b><td class=m>${X.hex(c?c.ip:0)}<td class="m dim">line ${cur||'–'}</tr>`;
+ const f=c?c.f:{};$('fl').innerHTML=['cf','pf','af','zf','sf','df','of'].map(k=>`<span class="fg${f[k]?' on':''}">${k.toUpperCase()}=${f[k]|0}</span>`).join('');
+ $('efl').textContent='EFLAGS = 0x'+X.hex(c?c.flagsWord():2);$('cnt').textContent=c?c.steps:0;
+ const I=c&&!c.halted&&c.prog.ins[(c.ip-X.TB)/4];$('nx').textContent=I?`line ${I.ln}: ${I.text}`:c&&c.halted?'(program finished)':'–';
+ paint();if(cur){const y=(cur-1)*21;if(y<src.scrollTop||y>src.scrollTop+src.clientHeight-50)src.scrollTop=Math.max(0,y-80);sync();}
+ renderTabs();setStatus();}
+
+src.value=exs[0].code;$('ma').value=X.hex(X.DB);log('Ready. Load an example or write NASM 32-bit code, then Assemble / Run / Step.');render();
+</script></body></html>
